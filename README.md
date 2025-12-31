@@ -149,7 +149,7 @@ newsapi-automation/
 
 ### ZAI (GLM-4)
 
-- Get your API key at: [https://open.bigmodel.cn/](https://z.ai/model-api)
+- Get your API key at: https://z.ai/model-api
 
 ### Replicate (Flux Image Generation)
 
