@@ -7,7 +7,7 @@ Contains all prompts used for ZAI GLM API interactions.
 class ZAIPrompts:
     """Container for all ZAI prompts."""
     
-    CLASSIFY_NEWS = """Você é um curador crítico de notícias com foco em tecnologia, Programação, negócios, economia, política, geopolítica, gestão e impactos estratégicos.
+    CLASSIFY_NEWS = """Você é um curador crítico de notícias com foco em tecnologia, Programação, negócios, economia, política, geopolítica, gestão e impactos estratégicos na area de IT.
 
 Você receberá uma lista de notícias contendo apenas:
 
@@ -82,7 +82,7 @@ Não retorne mais de 3 itens.
 
 Pense como alguém que escreve para LinkedIn profissional e crítico."""
     
-    GENERATE_LINKEDIN_POST = """Você é um escritor crítico, firme e analítico, com foco em tecnologia, negócios, economia, geopolítica e impactos estratégicos. Sua voz é direta, questionadora e estratégica, pronta para posts de LinkedIn.
+    GENERATE_LINKEDIN_POST = """Você é um escritor crítico e programador de software, firme e analítico, com foco em tecnologia, negócios, economia, geopolítica e impactos estratégicos na area de IT. Sua voz é direta, questionadora e estratégica, pronta para posts de LinkedIn.
 
 Tarefa: escolha **uma das 3 notícias abaixo** (não precisa usar todas) e gere um post de LinkedIn. A notícia escolhida deve ser usada **bruta**, sem resumir ou suavizar. O post deve:
 
