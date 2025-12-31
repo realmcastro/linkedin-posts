@@ -48,7 +48,7 @@ class InputComponent:
     """Input component for search terms."""
     
     def __init__(self, parent: tk.Widget, styles: GUIStyles,
-                 on_search: Callable, on_clear: Callable):
+                 on_search: Callable, on_clear: Callable, on_generate_direct_post: Callable = None):
         """
         Initialize the input component.
         
@@ -57,11 +57,13 @@ class InputComponent:
             styles: The GUI styles object
             on_search: Callback function for search action
             on_clear: Callback function for clear action
+            on_generate_direct_post: Callback function for direct post generation
         """
         self.parent = parent
         self.styles = styles
         self.on_search = on_search
         self.on_clear = on_clear
+        self.on_generate_direct_post = on_generate_direct_post
         
         self.frame = ttk.LabelFrame(parent, text="Search Terms", padding=15)
         self.search_entry = None
@@ -129,9 +131,16 @@ class InputComponent:
         
         # Clear button
         clear_button = ttk.Button(button_frame, text="🗑 Clear",
-                                 style='Secondary.TButton',
-                                 command=self.on_clear)
+                                  style='Secondary.TButton',
+                                  command=self.on_clear)
         clear_button.pack(side='left')
+        
+        # Generate direct post button
+        if self.on_generate_direct_post:
+            self.generate_direct_post_button = ttk.Button(button_frame, text="📝 Gerar Post Direto",
+                                                            style='Primary.TButton',
+                                                            command=self._on_generate_direct_post)
+            self.generate_direct_post_button.pack(side='left', padx=(0, 10))
         
         # Status label
         self.status_label = ttk.Label(button_frame, text="Ready",
@@ -212,6 +221,11 @@ class InputComponent:
         """
         self.status_label.config(text=text, foreground=foreground)
     
+    def _on_generate_direct_post(self) -> None:
+        """Handle generate direct post button click."""
+        if self.on_generate_direct_post:
+            self.on_generate_direct_post()
+    
     def set_search_button_state(self, state: str) -> None:
         """
         Set the search button state.
@@ -220,6 +234,17 @@ class InputComponent:
             state: 'normal' or 'disabled'
         """
         self.search_button.config(state=state)
+    
+    def get_input_text(self) -> str:
+        """
+        Get the input text for direct post generation.
+        
+        Returns:
+            The input text, or empty string if no input
+        """
+        if hasattr(self, 'search_entry') and self.search_entry:
+            return self.search_entry.get().strip()
+        return ""
 
 
 class ResultsComponent:
@@ -401,6 +426,7 @@ class ResultsComponent:
                             self.append_text("\n")
                             # Store article for classification
                             self.current_articles.append(article)
+                            
             else:
                 # Handle unexpected response format
                 self.append_text(f"[{i}] Query: {result.get('query', 'Unknown')}\n", 'query')
@@ -461,6 +487,7 @@ class ResultsComponent:
         self.classify_button.pack_forget()
         self.abort_button.config(state='normal')
         self.generate_post_button.config(state='normal')
+    
     
     def reset_to_search_state(self) -> None:
         """Reset UI to initial search state."""
@@ -618,11 +645,15 @@ class LinkedInModal:
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         
-        # Mouse wheel scrolling
+        # Mouse wheel scrolling (bind to canvas instead of bind_all)
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            try:
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            except tk.TclError:
+                # Canvas has been destroyed, ignore the error
+                pass
         
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        canvas.bind("<MouseWheel>", _on_mousewheel)
         
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")

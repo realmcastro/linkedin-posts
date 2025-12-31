@@ -74,10 +74,11 @@ class NewsAPIGUI:
         
         # Input component
         self.input_component = InputComponent(
-            content_frame, 
+            content_frame,
             self.styles,
             on_search=self.on_search,
-            on_clear=self.on_clear
+            on_clear=self.on_clear,
+            on_generate_direct_post=self.on_generate_direct_post
         )
         self.input_component.pack(fill='x', pady=(0, 15))
         
@@ -166,6 +167,24 @@ class NewsAPIGUI:
         self.results_component.reset_to_search_state()
         self.input_component.set_status("Ready", 'black')
     
+    def on_generate_direct_post(self) -> None:
+        """Handle generate direct post button click."""
+        input_text = self.input_component.get_input_text()
+        
+        if not input_text:
+            messagebox.showwarning("Input Required",
+                                 "Please enter text for the post.")
+            return
+        
+        # Disable button and show generating status
+        self.input_component.generate_direct_post_button.config(state='disabled')
+        self.input_component.set_status("Generating LinkedIn post...", 'blue')
+        
+        # Run post generation in separate thread to avoid freezing UI
+        thread = Thread(target=self._perform_direct_post_generation, args=(input_text,))
+        thread.daemon = True
+        thread.start()
+    
     def on_classify(self, articles: List[dict]) -> None:
         """
         Handle classify button click.
@@ -230,6 +249,26 @@ class NewsAPIGUI:
         self.results_component.reset_to_search_state()
         self.input_component.set_status("Ready", 'black')
     
+    def on_select_article(self, article: dict) -> None:
+        """
+        Handle select article button click.
+        
+        Args:
+            article: The selected article dictionary
+        """
+        # Get the selected article and comment
+        comment = self.results_component.get_comment()
+        
+        # Disable buttons and show generating status
+        self.results_component.generate_selected_post_button.config(state='disabled')
+        self.results_component.abort_button.config(state='disabled')
+        self.input_component.set_status("Generating LinkedIn post...", 'blue')
+        
+        # Run post generation in separate thread to avoid freezing UI
+        thread = Thread(target=self._perform_article_post_generation, args=(article, comment))
+        thread.daemon = True
+        thread.start()
+    
     def on_generate_post(self, classification: str) -> None:
         """
         Handle generate post button click.
@@ -247,6 +286,24 @@ class NewsAPIGUI:
         thread.daemon = True
         thread.start()
     
+    def _perform_article_post_generation(self, article: dict, comment: str = "") -> None:
+        """
+        Perform the LinkedIn post generation for a specific article in a separate thread.
+        
+        Args:
+            article: The selected article dictionary
+            comment: Optional comment/instruction for the AI
+        """
+        try:
+            post = self.classifier.generate_linkedin_post_from_article(article, comment)
+            print(f"DEBUG: Generated post from article: {post[:200] if post else 'None'}")
+            
+            # Update UI from main thread
+            self.root.after(0, lambda: self._display_generated_post(post))
+        except Exception as e:
+            print(f"DEBUG: Post generation error: {str(e)}")
+            self.root.after(0, lambda: self._display_post_generation_error(str(e)))
+    
     def _perform_post_generation(self, classification: str) -> None:
         """
         Perform the LinkedIn post generation in a separate thread.
@@ -263,6 +320,33 @@ class NewsAPIGUI:
         except Exception as e:
             print(f"DEBUG: Post generation error: {str(e)}")
             self.root.after(0, lambda: self._display_post_generation_error(str(e)))
+    
+    def _perform_direct_post_generation(self, input_text: str) -> None:
+        """
+        Perform the LinkedIn post generation directly from input text in a separate thread.
+        
+        Args:
+            input_text: The input text to generate a post from
+        """
+        try:
+            post = self.classifier.generate_linkedin_post_direct(input_text)
+            print(f"DEBUG: Generated post from input: {post[:200] if post else 'None'}")
+            
+            # Update UI from main thread
+            self.root.after(0, lambda: self._display_generated_post(post))
+            
+            # Re-enable the direct post button
+            def enable_direct_post_button():
+                self.input_component.generate_direct_post_button.config(state='normal')
+            self.root.after(500, enable_direct_post_button)
+        except Exception as e:
+            print(f"DEBUG: Post generation error: {str(e)}")
+            self.root.after(0, lambda: self._display_post_generation_error(str(e)))
+            
+            # Re-enable the direct post button on error
+            def enable_direct_post_button():
+                self.input_component.generate_direct_post_button.config(state='normal')
+            self.root.after(500, enable_direct_post_button)
     
     def _display_generated_post(self, post: str) -> None:
         """

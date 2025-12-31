@@ -129,6 +129,221 @@ class ZAIClassifier:
         # If we get here, all retries failed
         return "Erro: Não foi possível classificar após múltiplas tentativas. Tente novamente mais tarde."
     
+    def generate_linkedin_post_from_article(self, article: dict, comment: str = "") -> str:
+        """
+        Generate a LinkedIn post based on a specific article with optional comment.
+        
+        Args:
+            article: The article dictionary with title, description, source, etc.
+            comment: Optional comment/instruction for the AI to focus on
+            
+        Returns:
+            Generated LinkedIn post as a string
+        """
+        if not article:
+            return "Nenhum artigo selecionado para gerar post."
+        
+        # Extract article information
+        title = article.get('title', 'N/A')
+        description = article.get('description', 'N/A')
+        source = article.get('source', {}).get('name', 'N/A')
+        url = article.get('url', 'N/A')
+        
+        # Build the article data string
+        article_data = f"Título: {title}\n"
+        article_data += f"Descrição: {description}\n"
+        article_data += f"Fonte: {source}\n"
+        article_data += f"Link: {url}\n"
+        
+        # Build the prompt with article data and optional comment
+        user_content = ZAIPrompts.GENERATE_LINKEDIN_POST + "\n\n"
+        user_content += "Aqui estão os detalhes do artigo selecionado:\n\n"
+        user_content += article_data
+        
+        # Add comment if provided
+        if comment:
+            user_content += f"\n\nComentário/instrução adicional:\n{comment}"
+        
+        # Implement exponential backoff for rate limiting
+        max_retries = 3
+        base_delay = 2  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                # Add small delay before request to avoid rate limit
+                if attempt > 0:
+                    delay = base_delay * (2 ** attempt)
+                    print(f"Rate limit detected. Waiting {delay} seconds before retry {attempt + 1}/{max_retries}...")
+                    time.sleep(delay)
+                else:
+                    # Initial small delay for first request
+                    time.sleep(0.5)
+                
+                # Build the request
+                url = f"{self.api_base}/chat/completions"
+                headers = {
+                    "Accept-Language": "en-US,en",
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json"
+                }
+                
+                payload = {
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "Você é um assistente útil que gera posts de LinkedIn."
+                        },
+                        {
+                            "role": "user",
+                            "content": user_content
+                        }
+                    ],
+                    "temperature": 1,
+                    "stream": False,
+                    "do_sample": True,
+                    "thinking": {
+                        "type": "enabled",
+                        "clear_thinking": True
+                    },
+                    "top_p": 0.95,
+                    "tool_stream": False,
+                    "response_format": {"type": "text"}
+                }
+                
+                response = requests.post(
+                    url,
+                    headers=headers,
+                    json=payload,
+                    timeout=self.timeout
+                )
+                
+                # Check for rate limit error
+                if response.status_code == 429:
+                    if attempt < max_retries - 1:
+                        # Will retry in next iteration with exponential backoff
+                        continue
+                    else:
+                        return "Erro: Limite de taxa da API excedido. Tente novamente em alguns minutos."
+                
+                response.raise_for_status()
+                result = response.json()
+                
+                # Extract the LinkedIn post
+                if "choices" in result and len(result["choices"]) > 0:
+                    return result["choices"][0]["message"]["content"]
+                else:
+                    return "Erro na resposta da API: formato inesperado."
+                    
+            except requests.exceptions.HTTPError as e:
+                if e.response and e.response.status_code == 429:
+                    # Rate limit error - will retry
+                    continue
+                return f"Erro ao gerar post: {str(e)}"
+            except requests.exceptions.RequestException as e:
+                return f"Erro ao gerar post: {str(e)}"
+        
+        # If we get here, all retries failed
+        return "Erro: Não foi possível gerar o post após múltiplas tentativas. Tente novamente mais tarde."
+    
+    def generate_linkedin_post_direct(self, input_text: str) -> str:
+        """
+        Generate a LinkedIn post directly from input text without classification.
+        
+        Args:
+            input_text: The input text for the post
+            
+        Returns:
+            Generated LinkedIn post as a string
+        """
+        if not input_text:
+            return "Nenhum texto fornecido para gerar post."
+        
+        # Build the prompt with direct input
+        user_content = ZAIPrompts.GENERATE_LINKEDIN_POST + "\n\n" + input_text
+        
+        # Implement exponential backoff for rate limiting
+        max_retries = 3
+        base_delay = 2  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                # Add small delay before request to avoid rate limit
+                if attempt > 0:
+                    delay = base_delay * (2 ** attempt)
+                    print(f"Rate limit detected. Waiting {delay} seconds before retry {attempt + 1}/{max_retries}...")
+                    time.sleep(delay)
+                else:
+                    # Initial small delay for first request
+                    time.sleep(0.5)
+                
+                # Build the request
+                url = f"{self.api_base}/chat/completions"
+                headers = {
+                    "Accept-Language": "en-US,en",
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json"
+                }
+                
+                payload = {
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "Você é um assistente útil que gera posts de LinkedIn."
+                        },
+                        {
+                            "role": "user",
+                            "content": user_content
+                        }
+                    ],
+                    "temperature": 1,
+                    "stream": False,
+                    "do_sample": True,
+                    "thinking": {
+                        "type": "enabled",
+                        "clear_thinking": True
+                    },
+                    "top_p": 0.95,
+                    "tool_stream": False,
+                    "response_format": {"type": "text"}
+                }
+                
+                response = requests.post(
+                    url,
+                    headers=headers,
+                    json=payload,
+                    timeout=self.timeout
+                )
+                
+                # Check for rate limit error
+                if response.status_code == 429:
+                    if attempt < max_retries - 1:
+                        # Will retry in next iteration with exponential backoff
+                        continue
+                    else:
+                        return "Erro: Limite de taxa da API excedido. Tente novamente em alguns minutos."
+                
+                response.raise_for_status()
+                result = response.json()
+                
+                # Extract the LinkedIn post
+                if "choices" in result and len(result["choices"]) > 0:
+                    return result["choices"][0]["message"]["content"]
+                else:
+                    return "Erro na resposta da API: formato inesperado."
+                    
+            except requests.exceptions.HTTPError as e:
+                if e.response and e.response.status_code == 429:
+                    # Rate limit error - will retry
+                    continue
+                return f"Erro ao gerar post: {str(e)}"
+            except requests.exceptions.RequestException as e:
+                return f"Erro ao gerar post: {str(e)}"
+        
+        # If we get here, all retries failed
+        return "Erro: Não foi possível gerar o post após múltiplas tentativas. Tente novamente mais tarde."
+    
     def generate_linkedin_post(self, classification_text: str) -> str:
         """
         Generate a LinkedIn post based on the classification result.
